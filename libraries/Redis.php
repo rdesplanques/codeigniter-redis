@@ -285,7 +285,49 @@ class Redis {
 	 */
 	private function _encode_request($request, $data = NULL)
 	{
-		$slices = explode(' ', rtrim($request, ' '));
+		// detect enclosing characters
+		if(strpbrk($request,'{"['))
+		{
+			$seps = array('"'=>'"','{'=>'}','['=>']');
+			$sep = $ss = $chunk = '';
+			$slices = $slice = array();
+			$a = str_split(rtrim($request, ' '));
+			foreach($a as $s)
+			{
+				// if we open a enclosed string
+				if( in_array($s,array('"','{','[')) && $ss !== '\\' && !$sep )
+				{
+					$sep = $s;
+					if($s!=='"') 
+					{
+						$slice[] = $s;
+					}
+					continue;
+				}
+				// if we close this slice
+				if ( $sep && $seps[$sep] === $s && $ss !== '\\'){
+					$sep = '';
+					if($s!=='"')
+					{
+						$slice[] = $s;
+					}
+					continue;
+				}
+				// space between slices
+				if ( $s === ' ' && !$sep)
+				{
+					$slices[] = implode('',$slice);
+					$slice = array();
+					continue;
+				}
+				$slice[] = $ss = $s;
+			}
+			$slices[] = implode('',$slice);
+		}
+		else
+		{
+			$slices = explode(' ', rtrim($request, ' '));
+		}
 		$arguments = count($slices);
 
 		if ($data !== NULL)
